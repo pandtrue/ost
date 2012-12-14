@@ -11,10 +11,13 @@ from google.appengine.ext import db
 form = cgi.FieldStorage()
 a=[]
 
+# The model use for the different categories, contain name and items save in the category
 class Category(db.Model):
     name = db.StringProperty(required=True)
     items = db.StringListProperty()
-
+    
+# The model use for save the vote result for each category, contain name of the cateogry
+# and the list of result in format "winitem/loseitem"
 class Result(db.Model):
     name = db.StringProperty(required=True)
     resultlist = db.StringListProperty()
@@ -24,7 +27,7 @@ C1.items=["Ironman","Titanic","Avartar","LionKing"]
 C1.put()
 
 C2 = Category(name="Sports")
-C2.items=["Tennis","Footbal","Basketball","Soccer"]
+C2.items=["Tennis","Football","Basketball","Soccer"]
 C2.put()
 
 
@@ -51,7 +54,7 @@ class MainPage(webapp.RequestHandler):
             self.redirect(users.create_login_url(self.request.uri))
 
 # The page when the use choose the first option on the main page: create a new category.
-class Createnewcateogry(webapp.RequestHandler):
+class Createnewcategory(webapp.RequestHandler):
         def post(self):
                 form = cgi.FieldStorage()
                 #self.response.headers['Content-Type'] = 'text/plain'
@@ -74,61 +77,31 @@ class Createnewcateogry(webapp.RequestHandler):
                 new.items=list
                 new.put()
 
-
-
                 self.response.out.write("<hr />")
                 self.response.out.write("<li>Back to <a href='/'> Home Page</a></li></ul>")
                 self.response.out.write('</body></html>')
 
-class AA(webapp.RequestHandler):
-        def post(self):
-            category = form.getvalue("category")
-            self.response.out.write("%s" % category)
-            self.response.out.write("<p><b> Results for %s:</b></p>" %category)
-            # get the item list from the Category Model
-            query2 = Category.all()
-            query2.filter('name =', category)
-            citem1=[]
-            for u in query2:
-                #self.response.out.write("%s<br />" % x.items)
-                citem1=u.items
-            # get the result list from the Result Model
-            query3 = Result.all()
-            query3.filter('name =', category)
-            citem2=[]
-            for w in query3:
-                #self.response.out.write("%s<br />" % x.items)
-                citem2=w.resultlist
+class Deletecategory(webapp.RequestHandler):
+    def post(self):
+                form = cgi.FieldStorage()
+                self.response.out.write('<html><body>')
+                category = form.getvalue("category")
                 
-            # create the output table, four fields: item name, win, lose, wining persentage
-            self.response.out.write("<table border='1'>")
-            self.response.out.write("<tr><td>Item name</td><td>Wins</td><td>Losses</td><td>Percent wins</td></tr>")
-            
-            for v in citem1:
-                 self.response.out.write("<tr>")
-                 self.response.out.write("<td>%s</td>" % v)
-                 winnum=0
-                 losenum=0
-                 for vitem in citem2:
-                     #self.response.out.write("%s<br />" % vitem)
-                     
-                     winentry = vitem.split("/")[0]
-                     if v == winentry:                         
-                         winnum+=1
-                     loseentry = vitem.split("/")[1]
-                     self.response.out.write("%s,%s<br />" % (winentry,loseentry))
-                #self.response.out.write("%s" % entry)
-                     
-                     if v == loseentry:
-                         losenum+=1
-                 self.response.out.write("<td>%s</td>" % winnum)
-                 self.response.out.write("<td>%s</td>" % losenum)
-                 self.response.out.write("<td>%s</td>" % (winnum*100/(winnum+losenum)))
-                 
-                 self.response.out.write("</tr>")
-            self.response.out.write("</table><br />")
-            self.response.out.write("<hr />")
-            
+                query = Category.all()
+                query.filter('name =', category)
+                for x in query:
+                    x.delete()
+                    
+                query2 = Result.all()
+                query2.filter('name =', category)
+                for y in query2:
+                    y.delete()
+                   
+                self.response.out.write('Category delete success!')
+                self.response.out.write("<hr />")
+                self.response.out.write("<li>Back to <a href='/'> Home Page</a></li></ul>")
+                self.response.out.write('</body></html>')
+             
 # Form the selected category, random generate two items for user to vote.
 # read the answer and write into result for later use.
 class Votecategory(webapp.RequestHandler):
@@ -172,6 +145,59 @@ class Votecategory(webapp.RequestHandler):
                     self.response.out.write("<table border='1'><tr><td>"+win+"</td><td>"+str(win1)+"</td></tr>")
                     self.response.out.write("<tr><td>"+lose+"</td><td>"+str(win2)+"</td></tr></table>")
                     self.response.out.write("<hr />")
+
+                elif form.has_key("check"):
+                    category = form.getvalue("category")
+                    #self.response.out.write("%s" % category)
+                    self.response.out.write("<p><b> Results for %s:</b></p>" %category)
+                    # get the item list from the Category Model
+                    query2 = Category.all()
+                    query2.filter('name =', category)
+                    citem1=[]
+                    for u in query2:
+                        #self.response.out.write("%s<br />" % x.items)
+                        citem1=u.items
+                    # get the result list from the Result Model
+                    query3 = Result.all()
+                    query3.filter('name =', category)
+                    citem2=[]
+                    for w in query3:
+                        #self.response.out.write("%s<br />" % x.items)
+                        citem2=w.resultlist
+                        
+                    # create the output table, four fields: item name, win, lose, wining persentage
+                    self.response.out.write("<table border='1'>")
+                    self.response.out.write("<tr><td>Item name</td><td>Wins</td><td>Losses</td><td>Percent wins</td></tr>")
+                    
+                    for v in citem1:
+                         self.response.out.write("<tr>")
+                         self.response.out.write("<td>%s</td>" % v)
+                         winnum=0
+                         losenum=0
+                         for vitem in citem2:
+                             #self.response.out.write("%s<br />" % vitem)
+                             
+                             winentry = vitem.split("/")[0]
+                             if v == winentry:                         
+                                 winnum+=1
+                             loseentry = vitem.split("/")[1]
+                             #self.response.out.write("%s,%s<br />" % (winentry,loseentry))
+                        #self.response.out.write("%s" % entry)
+                             
+                             if v == loseentry:
+                                 losenum+=1
+                         self.response.out.write("<td>%s</td>" % winnum)
+                         self.response.out.write("<td>%s</td>" % losenum)
+                         
+                         if (winnum+losenum)==0:
+                             winp=0
+                         else:
+                             winp=winnum*100/(winnum+losenum)
+                         self.response.out.write("<td>%s</td>" % winp)
+                         
+                         self.response.out.write("</tr>")
+                    self.response.out.write("</table><br />")
+                    self.response.out.write("<hr />")
           
                 category = form.getvalue("category")
                 self.response.out.write("<b>Category: </b>%s<br/>" %category)
@@ -195,17 +221,19 @@ class Votecategory(webapp.RequestHandler):
                 self.response.out.write("<input type='hidden' name='category' value='%s'/><br />" %category)
                 self.response.out.write("<input type='submit' name='aftervote' value='Vote!' />")
                 self.response.out.write("<input type='submit' name='skip' value='Skip'/>")
+                self.response.out.write("<hr />")
+                self.response.out.write('<div><input type="submit" name="check" value="See all results"></div>')
                 self.response.out.write("</form>")
 
-                self.response.out.write("<hr />")
-                #self.response.out.write("<ul><li>See <a href='?results=%s' >all results </a></li>" % category)
+                #self.response.out.write("<hr />")
+                #self.response.out.write("<ul><li>See <a href='?results' >all results </a></li>")
                 #self.response.out.write("<li>Back to <a href='/sign'> Category</a></li>")
                 #self.response.out.write("<li>Back to <a href='/'>Home page</a></li></ul>")
                 
-                self.response.out.write('<form action="/aa" method="post">')
-                self.response.out.write("<input type='hidden' name='category' value='%s'/><br />" % category)
-                self.response.out.write('<div><input type="submit" value="See all results"></div>')
-                self.response.out.write("</form>")
+                #self.response.out.write('<form action="/aa" method="post">')
+                #self.response.out.write("<input type='hidden' name='category' value='%s'/><br />" % category)
+                #self.response.out.write('<div><input type="submit" name="check" value="See all results"></div>')
+                #self.response.out.write("</form>")
                 
                 self.response.out.write('<form action="/sign" method="post">')
                 self.response.out.write('<div><input type="submit" value="Back to Category"></div>')
@@ -253,8 +281,20 @@ class Guestbook(webapp.RequestHandler):
                     #self.response.out.write("<form action='/start' method='post' target='_self'>")
                     #self.response.out.write("<input type=radio name=category value='%s'checked/>%s<br />" % (category.name,category.name))
                     
-                    self.response.out.write('<p>%s :' % category.name)
-                    self.response.out.write('%s<br />' % category.items)
+                    #self.response.out.write('<p>%s :' % category.name)
+                    #self.response.out.write('%s<br />' % category.items)
+                    #for category in categories:
+                    #category.delete()
+                    self.response.out.write("<form action='/delete' method='post' target='_self'>")
+                    self.response.out.write("<input type=radio name=category value='%s'checked/>%s<br />" % (category.name,category.name))
+                    
+                    #self.response.out.write('<b>%s</b> :' % category.name)
+                    #self.response.out.write('<b>%s</b><br />' % category.items)
+            self.response.out.write("Click here to delete category: <input type='submit' name='foredit' value='Delete!'><br />")
+            self.response.out.write("<form")
+            self.response.out.write("<hr />")
+
+                    
             self.response.out.write("<hr />")
             self.response.out.write("If you want to create a new category, please enter the new category's info:<br/ >")
             #self.response.out.write("Click here to start vote: <input type='submit' name='aftervote' value='Start!'>")
@@ -286,8 +326,8 @@ application = webapp.WSGIApplication(
                                      [('/', MainPage),
                                       ('/sign', Guestbook),
                                       ('/vote',Votecategory),
-                                      ('/make',Createnewcateogry),
-                                      ('/aa',AA)],
+                                      ('/make',Createnewcategory),
+                                      ('/delete',Deletecategory)],
                                      debug=True)
 
 def main():
