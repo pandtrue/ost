@@ -1,12 +1,15 @@
 import cgi
 import cgitb
 import random
-cgitb.enable()
-
+import os
+import xml.dom.minidom
+from google.appengine.ext.webapp import template
 from google.appengine.api import users
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.ext import db
+
+cgitb.enable()
 
 form = cgi.FieldStorage()
 a=[]
@@ -44,14 +47,60 @@ class MainPage(webapp.RequestHandler):
             self.response.out.write("""
               <center><H1>Welcome to the voting system</H1></center>
               <form action="/sign" method="post">
-                <div><input type="radio" name="choice" value="item"> Create a category</div>
+                <div><input type="radio" name="choice" value="item"> Edit a category</div>
                 <div><input type="radio" name="choice" value="vote"> Vote a category</div><br />
                 <div><input type="submit" value="Start!"></div>
+              </form>
+              <hr >
+              <form action='/find' method='post' target='_self'>
+              <p> Want to find something? <br /><input type='text' name='finditem'>
+              <input type='submit' name='create' value='Find!'>
               </form>
             </body>
             </html>""")
         else:
             self.redirect(users.create_login_url(self.request.uri))
+
+# find the word that user input, and check is there any item in each category related to the word.
+class Finditem(webapp.RequestHandler):
+        def post(self):
+                form = cgi.FieldStorage()               
+                word=form.getvalue('finditem')
+                self.response.out.write('<html><body>')
+                #self.response.out.write('%s' % word)
+
+                # Check category name first
+                query = Category.all()
+                namelist=[]
+                ilist=[]
+                count=0
+                
+                for u in query:
+                    #self.response.out.write("%s<br />" % x.items)
+                    namelist=u.name
+                    #self.response.out.write('%s' % namelist)
+                    if word.lower() in namelist.lower():
+                        self.response.out.write('%s is the name of a category(%s)<br />' % (word,u.name))
+                        count+=1
+                    #else:
+                        #self.response.out.write(" %s not found<br />" % word)
+                    
+
+                # Check whether in any catgegory
+                for u in query:
+                    ilist=u.items
+                    for w in ilist:
+                        if word.lower() in w.lower():                           
+                            self.response.out.write('%s is the name of a itemCreate a new categos) in the category: %s<br />' % (word,w,u.name))
+                            count+=1
+                if count==0:
+                    self.response.out.write("Sorry, %s is not a category or a item in any cateogry...<br />" % word)
+                    #else:
+                        #self.response.out.write(" %s not found" % word)
+
+                self.response.out.write("<hr />")
+                self.response.out.write("<li>Back to <a href='/'> Home Page</a></li></ul>")
+                self.response.out.write('</body></html>')
 
 # The page when the use choose the first option on the main page: create a new category.
 class Createnewcategory(webapp.RequestHandler):
@@ -81,23 +130,107 @@ class Createnewcategory(webapp.RequestHandler):
                 self.response.out.write("<li>Back to <a href='/'> Home Page</a></li></ul>")
                 self.response.out.write('</body></html>')
 
+# Delete an exist category.
 class Deletecategory(webapp.RequestHandler):
     def post(self):
                 form = cgi.FieldStorage()
                 self.response.out.write('<html><body>')
                 category = form.getvalue("category")
-                
-                query = Category.all()
-                query.filter('name =', category)
-                for x in query:
-                    x.delete()
+                if form.has_key("delete"):
+                    query = Category.all()
+                    query.filter('name =', category)
+                    for x in query:
+                        x.delete()
+                        
+                    query2 = Result.all()
+                    query2.filter('name =', category)
+                    for y in query2:
+                        y.delete()
+                       
+                    self.response.out.write('Category delete success!')
+
+                # Export an category
+                elif form.has_key("export"):
                     
-                query2 = Result.all()
-                query2.filter('name =', category)
-                for y in query2:
-                    y.delete()
-                   
-                self.response.out.write('Category delete success!')
+                    
+                    query = Category.all()
+                    query.filter('name =', category)
+                    relist=[]
+                    for y in query:
+                        relist=y.items
+
+                    self.response.out.write(cgi.escape('<?xml version="1.0" encoding="UTF-8"?>'))
+                    self.response.out.write('<br />')
+                    self.response.out.write(cgi.escape("<CATEGORY>"))
+                    self.response.out.write('<br />&nbsp;&nbsp;&nbsp;&nbsp;')
+                    self.response.out.write(cgi.escape("<NAME>%s</NAME>\n" % category))
+                    
+                    for x in relist:
+                        self.response.out.write('<br />&nbsp;&nbsp;&nbsp;&nbsp;')
+                        self.response.out.write(cgi.escape("<ITEM>\n"))
+                        self.response.out.write('<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;')
+                        self.response.out.write(cgi.escape("<NAME>%s</NAME>\n" % x))
+                        self.response.out.write('<br />&nbsp;&nbsp;&nbsp;&nbsp;')
+                        self.response.out.write(cgi.escape("</ITEM>\n"))
+                    self.response.out.write('<br />')
+                    self.response.out.write(cgi.escape("</CATEGORY>\n"))
+
+                    '''
+                    with io.open('C:/Users/Tianyi/Desktop/ost/a.txt', 'w') as file:
+                        file.write(u'Spam and eggs!')
+                        file.close()
+                    '''
+                    
+                    
+                    '''
+                    f.write(cgi.escape("<CATEGORY>\n"))
+                    f.write(cgi.escape("<NAME>$s</NAME>\n" % category))
+                    for x in relist:
+                        f.write(cgi.escape("<ITEM>\n"))
+                        f.write(cgi.escape("<NAME>%s</NAME>\n" % x))
+                        f.write(cgi.escape("</ITEM>\n"))
+                    f.write(cgi.escape("</CATEGORY>\n"))                   
+                    f.close()
+'''
+                    
+                self.response.out.write("<hr />")
+                self.response.out.write("<li>Back to <a href='/'> Home Page</a></li></ul>")
+                self.response.out.write('</body></html>')
+                
+# create a category by import an xml page.
+class Importxml(webapp.RequestHandler):
+    def post(self):
+                form = cgi.FieldStorage()
+                self.response.out.write('<html><body>')
+                address=form.getvalue("xml")
+                PROJECT_DIR = os.path.dirname('http://cs.nyu.edu/courses/fall12/CSCI-GA.3033-004/asgn/category.xml')
+                #self.response.out.write("%s" % address)
+                dom = xml.dom.minidom.parse('category.xml')
+                root = dom.documentElement
+                nameNode = root.getElementsByTagName("NAME")[0]
+                catename = nameNode.childNodes[0].nodeValue
+                self.response.out.write("%s" % catename)
+                items = root.getElementsByTagName("ITEM")
+                #n=root.getElementsByTagName("NAME")
+                #self.response.out.write("%s" % n)
+                #nameNode = item.getElementsByTagName("NAME")[0]
+                #self.response.out.write("%s" % nameNode.childNodes[0].nodeValue)
+                #for node in root.childNodes:
+                itemlist=[]    
+                for item in items:
+                    #self.response.out.write("%s" % item.toxml())
+                    nameNode2 = item.getElementsByTagName("NAME")[0]
+                    #self.response.out.write("%s" % nameNode.nodeValue)
+                    #nameNode = employee.getElementsByTagName("name")[0]
+                    #self.response.out.write("%s" % nameNode.childNodes)
+                    self.response.out.write("%s" % nameNode2.childNodes[0].nodeValue)
+                    itemlist.append(nameNode2.childNodes[0].nodeValue)
+                new=Category(name=catename)
+                new.items=itemlist
+                new.put()
+
+
+                
                 self.response.out.write("<hr />")
                 self.response.out.write("<li>Back to <a href='/'> Home Page</a></li></ul>")
                 self.response.out.write('</body></html>')
@@ -246,35 +379,18 @@ class Votecategory(webapp.RequestHandler):
                 self.response.out.write('</body></html>')
 
 
+# the body of the program. if user choose edit a categoty, then he can create a new category
+# or delete a exist category. If user choose to vote. the vote part start to work.
 class Guestbook(webapp.RequestHandler):
     def post(self):
-        #C1 = Category(name="Movies")
-        #C1.items=["Ironman","Titanic","Avartar","LionKing"]
-        #C1.put()
-        #C1.delete()
-        #address_k = db.Key.from_path(C1.name, C1.items)
-        #db.delete(address_k)
         
-
-        #C2 = Category(name="Sports")
-        #C2.items=["Tennis","Footbal","Basketball","Soccer"]
-        #C2.put()
-        #C2.delete()
-
-        
-        categories = db.GqlQuery("SELECT * FROM Category")
-        
-        
+        categories = db.GqlQuery("SELECT * FROM Category")      
         if self.request.get('choice')=="item":
             
-            
             self.response.out.write('<html><body>')
-            #self.response.out.write('%s' % Category.key())
-            #print categories
-            #print Movies.items
-            #print Category.key()
-
-            self.response.out.write(" <b>Following are the exist categories: </b><br />")
+            self.response.out.write(" <b>Delete a categorie/Export a category: </b><br />")
+            # The form for delete a exist category. If the category being deleted, it will shows on a new page.
+            self.response.out.write("<form action='/delete' method='post' target='_self'>")
             for category in categories:
                     #self.response.out.write('%s' % category)
                     #category.delete()
@@ -285,26 +401,37 @@ class Guestbook(webapp.RequestHandler):
                     #self.response.out.write('%s<br />' % category.items)
                     #for category in categories:
                     #category.delete()
-                    self.response.out.write("<form action='/delete' method='post' target='_self'>")
+                    
                     self.response.out.write("<input type=radio name=category value='%s'checked/>%s<br />" % (category.name,category.name))
                     
                     #self.response.out.write('<b>%s</b> :' % category.name)
                     #self.response.out.write('<b>%s</b><br />' % category.items)
-            self.response.out.write("Click here to delete category: <input type='submit' name='foredit' value='Delete!'><br />")
-            self.response.out.write("<form")
+            self.response.out.write("<p>Click here to delete category: <input type='submit' name='delete' value='Deletes'><br />")
+            self.response.out.write("<p>Click here to export category with XML: <input type='submit' name='export' value='Export'><br />")
+            self.response.out.write("</form>")
             self.response.out.write("<hr />")
 
-                    
-            self.response.out.write("<hr />")
-            self.response.out.write("If you want to create a new category, please enter the new category's info:<br/ >")
-            #self.response.out.write("Click here to start vote: <input type='submit' name='aftervote' value='Start!'>")
+
+            self.response.out.write("<b>Create a new category:</b><br/ >")
+            # The form for add a new category. After fill in the form and submit,
+            # it will transfer to a new page and shows the information of that cateogry.
             self.response.out.write("<form action='/make' method='post' target='_self'>")
             self.response.out.write("<p> New Category Name: <input type='text' name='cname'>")
             self.response.out.write("<p> Please imput the items in this category, one item each line:")
-            self.response.out.write("<p> <textarea name='itemnames' rows='20' cols='20'>")
+            self.response.out.write("<p> <textarea name='itemnames' rows='10' cols='20'>")
             self.response.out.write("</textarea><br />")
             self.response.out.write("<input type='submit' name='create' value='Submit'>")
+            self.response.out.write("</form>")
             self.response.out.write('</body></html>')
+            self.response.out.write("<hr />")
+
+            # create new category by import xml
+            self.response.out.write("<b>Import a category with xml: </b><br/ >")
+            self.response.out.write("<form action='/xml' method='post' target='_self'>")
+            self.response.out.write("<p> Please enter the xml address: <input type='text' name='xml'>")
+            self.response.out.write("<input type='submit' name='create' value='Import'>")
+            self.response.out.write("</form>")
+            
 
         # List all the categoires and let user start                              
         else:
@@ -322,12 +449,15 @@ class Guestbook(webapp.RequestHandler):
         self.response.out.write("<hr />")
         self.response.out.write("<li>Back to <a href='/'> Home Page</a></li></ul>")
 
+# The ternminal, use for transfer between different pages based on the action value.
 application = webapp.WSGIApplication(
                                      [('/', MainPage),
                                       ('/sign', Guestbook),
                                       ('/vote',Votecategory),
                                       ('/make',Createnewcategory),
-                                      ('/delete',Deletecategory)],
+                                      ('/delete',Deletecategory),
+                                      ('/find',Finditem),
+                                      ('/xml',Importxml)],
                                      debug=True)
 
 def main():
