@@ -25,6 +25,10 @@ class Result(db.Model):
     name = db.StringProperty(required=True)
     resultlist = db.StringListProperty()
 
+class Belong(db.Model):
+    user = db.StringProperty(required=True)
+    categorylist = db.StringListProperty()
+
 C1 = Category(name="Movies")
 C1.items=["Ironman","Titanic","Avartar","LionKing"]
 C1.put()
@@ -47,7 +51,7 @@ class MainPage(webapp.RequestHandler):
             self.response.out.write("""
               <center><H1>Welcome to the voting system</H1></center>
               <form action="/sign" method="post">
-                <div><input type="radio" name="choice" value="item"> Edit a category</div>
+                <div><input type="radio" name="choice" value="item" checked/> Edit a category</div>
                 <div><input type="radio" name="choice" value="vote"> Vote a category</div><br />
                 <div><input type="submit" value="Start!"></div>
               </form>
@@ -91,7 +95,7 @@ class Finditem(webapp.RequestHandler):
                     ilist=u.items
                     for w in ilist:
                         if word.lower() in w.lower():                           
-                            self.response.out.write('%s is the name of a itemCreate a new categos) in the category: %s<br />' % (word,w,u.name))
+                            self.response.out.write('%s is the name of a item(%s) in the category: %s<br />' % (word,w,u.name))
                             count+=1
                 if count==0:
                     self.response.out.write("Sorry, %s is not a category or a item in any cateogry...<br />" % word)
@@ -114,18 +118,25 @@ class Createnewcategory(webapp.RequestHandler):
                 itemnames=form.getvalue('itemnames')
                 self.response.out.write('Here is your new category: <b>%s</b>' % cname)
                 self.response.out.write('<p> The items in this category are: <br />')
-                list=[]
+                b=[]
                 itemlist=itemnames.split('\n')
                 for item in itemlist:
                     self.response.out.write('%s<br />' % item)
-                    list.append(item)
+                    b.append(item)
                 #self.response.out.write('<p> %s' % list)
 
                 # add new cateogry into database
                 new=Category(name=cname)
-                new.items=list
+                new.items=b
                 new.put()
-
+                '''
+                user = users.get_current_user()
+                a=[]
+                a.append(cname)
+                belong=Belong(user)
+                belong.items=a
+                belong.put()
+                '''
                 self.response.out.write("<hr />")
                 self.response.out.write("<li>Back to <a href='/'> Home Page</a></li></ul>")
                 self.response.out.write('</body></html>')
@@ -136,7 +147,16 @@ class Deletecategory(webapp.RequestHandler):
                 form = cgi.FieldStorage()
                 self.response.out.write('<html><body>')
                 category = form.getvalue("category")
-                if form.has_key("delete"):
+
+                user = users.get_current_user()
+                # Delete a category
+                if form.has_key("deletecategory"):
+                    blist=[]
+                    queryu=Belong.all()
+                    queryu.filter('user =', user)
+                    for usr in queryu:
+                        blist=queryu.categorylist
+                        
                     query = Category.all()
                     query.filter('name =', category)
                     for x in query:
@@ -146,10 +166,23 @@ class Deletecategory(webapp.RequestHandler):
                     query2.filter('name =', category)
                     for y in query2:
                         y.delete()
-                       
-                    self.response.out.write('Category delete success!')
+                           
+                    self.response.out.write('Successfully delete the category!')
+                    '''
+                    if x in blist:
+                        x.delete()
+                        query2 = Result.all()
+                        query2.filter('name =', category)
+                        for y in query2:
+                            y.delete()
+                           
+                        self.response.out.write('Successfully delete the category!')
+                    else:
+                        self.response.out.write('Sorry, this is not your category, you cannot delete it.')
+                    '''
+                    
 
-                # Export an category
+                # Export a category
                 elif form.has_key("export"):
                     
                     
@@ -175,41 +208,178 @@ class Deletecategory(webapp.RequestHandler):
                     self.response.out.write('<br />')
                     self.response.out.write(cgi.escape("</CATEGORY>\n"))
 
-                    '''
-                    with io.open('C:/Users/Tianyi/Desktop/ost/a.txt', 'w') as file:
-                        file.write(u'Spam and eggs!')
-                        file.close()
-                    '''
+
+                # Change the name of a category
+                # First find out that category, get the items in it.
+                # make the new category with new name and the same items, then delete old one.
+                # For the result model, do the same way.
+                elif form.has_key("changecategory"):
+                    newname=form.getvalue("newname")
+                    query = Category.all()
+                    sameitem=[]
+                    query.filter('name =', category)
+                    for x in query:
+                        sameitem=x.items
+                        x.delete()
+                    new=Category(name=newname)
+                    new.items=sameitem
+                    new.put()
+
+                    query2 = Result.all()
+                    sameresult=[]
+                    query2.filter('name =', category)
+                    for y in query2:
+                        sameresult=y.resultlist
+                        y.delete()
+                    new=Result(name=newname)
+                    new.resultlist=sameresult
+                    new.put()
                     
+                    self.response.out.write('Successfully change the category name!')
+
+                # Delete an item in the category
+                # get the item and find the category it in
+                # delete that item in the item list and make new category with the new list and delete the old category
+                # do the same thing in the result model, delete the row has item, create Result model with the new resultlist the delete the old one.
+                elif form.has_key("deleteitem"):
+                    item=form.getvalue("item")
+                    #self.response.out.write('%s' % item)
+                    query=Category.all()
+                    itemlist=[]              
+                    for x in query:
+                        itemlist=x.items
+                        if item in itemlist:
+                            cname=x.name
+                            
+                            category=x
+                            rightlist=itemlist
+                            x.delete()
+                    #self.response.out.write("%s,%s" % (category,rightlist))
+                    pos=rightlist.index(item)
+                    rightlist.pop(pos)
+                    #self.response.out.write("%s,%s<br/ >" % (category,rightlist))
+                    new=Category(name=cname)
+                    new.items=rightlist
+                    new.put()
+
+                    alist=[]
+                    slist=[]
+                    query2=Result.all()
+                    #query2.filter('name =', 'Movies')
+                    for y in query2:
+                        alist=y.resultlist
+                        self.response.out.write("%s" % alist)
+                        
+                        for u in xrange(len(alist)-1):
+                            if item in alist[u]:
+                        #for z in alist:
+                            #if item in str(z):
+                                cname=y.name
+                                #self.response.out.write("%s" % alist[u])
+                         
+                                pos=alist.index(alist[u])
+                                #self.response.out.write("%s" % pos)
+                                alist.pop(pos)
+                                #self.response.out.write("%s" % alist)
+                        y.delete()
+                    #slist=alist
+                    #self.response.out.write("%s" % alist)
+                    new=Result(name=cname)
+                    new.items=alist
+                    new.put()
+                    self.response.out.write("Successfully delete the item!")
+
+                # Change the name of an exist item in a category
+                # Find out the category that item in, get the item list, rename and make the new list
+                # remake the category, and delete the old category
+                # For Result model, do the same thing.
+                
+                elif form.has_key("changeitem"):                    
+                    newname=form.getvalue("newnameitem")
+                    item=form.getvalue("item")
+                    self.response.out.write("%s" % item)
+                    self.response.out.write("%s" % newname)
+                    query=Category.all()
+
+                    itemlist=[]
+                    for x in query:
+                        itemlist=x.items
+                        self.response.out.write("%s" % itemlist)
+                        for u in xrange(len(itemlist)):
+                            if item == itemlist[u]:
+                                cname=x.name
+                                self.response.out.write("%s" % itemlist[u])
+                         
+                                pos=itemlist.index(itemlist[u])
+                                self.response.out.write("%s" % pos)
+                                itemlist.pop(pos)
+                                itemlist.append(newname)
+                                self.response.out.write("%s" % itemlist)
+                                x.delete()
+                    new=Category(name=cname)
+                    new.items=itemlist
+                    new.put()
                     
-                    '''
-                    f.write(cgi.escape("<CATEGORY>\n"))
-                    f.write(cgi.escape("<NAME>$s</NAME>\n" % category))
-                    for x in relist:
-                        f.write(cgi.escape("<ITEM>\n"))
-                        f.write(cgi.escape("<NAME>%s</NAME>\n" % x))
-                        f.write(cgi.escape("</ITEM>\n"))
-                    f.write(cgi.escape("</CATEGORY>\n"))                   
-                    f.close()
-'''
+                    query2=Result.all()
+                    for y in query2:
+                        alist=y.resultlist
+                        self.response.out.write("%s" % len(alist))
+                        m=len(alist)-1
+                        
+                        self.response.out.write("%s" % alist[m])
+                        
+                        for u in xrange(len(alist)-1):
+                            if item in alist[u]:
+                                bname=y.name                                
+                                self.response.out.write("%s" % alist[u])                        
+                                pos=alist.index(alist[u])
+                                self.response.out.write("%s" % pos)
+                                alist.pop(pos)
+                                self.response.out.write("%s" % alist)
+                                                            
+                                a=alist[u].split('/')
+                                self.response.out.write("%s" % a)
+                                left=a[0]
+                                right=a[1]
+                                self.response.out.write("%s,%s" % (left,right))
+                                if item == left:
+                                    b=newname+'/'+right
+                                else:
+                                    b=left+'/'+newname
+                                alist.append(b)
+                                self.response.out.write("%s" % alist)
+                            y.delete()
+                    new=Result(name=bname)
+                    new.items=alist
+                    new.put()
                     
+                    query3 = Result.all()
+                    ccresult=[]
+                    query3.filter('name =', bname)
+                    for z in query3:
+                        ccresult=y.resultlist
+                        self.response.out.write("%s" % ccresult)
+                    
+                    self.response.out.write("Successfully change the name of item!")
+                
+                                            
                 self.response.out.write("<hr />")
                 self.response.out.write("<li>Back to <a href='/'> Home Page</a></li></ul>")
                 self.response.out.write('</body></html>')
-                
+
 # create a category by import an xml page.
 class Importxml(webapp.RequestHandler):
     def post(self):
                 form = cgi.FieldStorage()
                 self.response.out.write('<html><body>')
                 address=form.getvalue("xml")
-                PROJECT_DIR = os.path.dirname('http://cs.nyu.edu/courses/fall12/CSCI-GA.3033-004/asgn/category.xml')
+                PROJECT_DIR = os.path.dirname(address)
                 #self.response.out.write("%s" % address)
-                dom = xml.dom.minidom.parse('category.xml')
+                dom = xml.dom.minidom.parse(address)
                 root = dom.documentElement
                 nameNode = root.getElementsByTagName("NAME")[0]
                 catename = nameNode.childNodes[0].nodeValue
-                self.response.out.write("%s" % catename)
+                #self.response.out.write("%s" % catename)
                 items = root.getElementsByTagName("ITEM")
                 #n=root.getElementsByTagName("NAME")
                 #self.response.out.write("%s" % n)
@@ -230,7 +400,7 @@ class Importxml(webapp.RequestHandler):
                 new.put()
 
 
-                
+                self.response.out.write("Successfully import a category with XML!")
                 self.response.out.write("<hr />")
                 self.response.out.write("<li>Back to <a href='/'> Home Page</a></li></ul>")
                 self.response.out.write('</body></html>')
@@ -251,7 +421,7 @@ class Votecategory(webapp.RequestHandler):
                     lose = form.getvalue("item").split("/")[1]
                     self.response.out.write("<i>You voted for '%s' over '%s'.</i><br /><br />" %(win,lose))
                     a.append(item)
-                    #self.response.out.write("%s" % a)
+                    self.response.out.write("%s" % a)
                     # save the result into model Result
                     new=Result(name=category)
                     new.resultlist=a
@@ -349,7 +519,7 @@ class Votecategory(webapp.RequestHandler):
 
                 # No matter which item win, it will always show as format win/lose.
                 self.response.out.write("<form action='/vote' method='post' target='_self'>")
-                self.response.out.write("<input type='radio' name='item' value='%s' />%s<br />" % (item1+"/"+item2,item1))
+                self.response.out.write("<input type='radio' name='item' value='%s' checked//>%s<br />" % (item1+"/"+item2,item1))
                 self.response.out.write("<input type='radio' name='item' value='%s' />%s<br />" % (item2+"/"+item1,item2))
                 self.response.out.write("<input type='hidden' name='category' value='%s'/><br />" %category)
                 self.response.out.write("<input type='submit' name='aftervote' value='Vote!' />")
@@ -383,7 +553,7 @@ class Votecategory(webapp.RequestHandler):
 # or delete a exist category. If user choose to vote. the vote part start to work.
 class Guestbook(webapp.RequestHandler):
     def post(self):
-        
+        #categories1 = db.GqlQuery("SELECT * FROM Result") 
         categories = db.GqlQuery("SELECT * FROM Category")      
         if self.request.get('choice')=="item":
             
@@ -391,6 +561,8 @@ class Guestbook(webapp.RequestHandler):
             self.response.out.write(" <b>Delete a categorie/Export a category: </b><br />")
             # The form for delete a exist category. If the category being deleted, it will shows on a new page.
             self.response.out.write("<form action='/delete' method='post' target='_self'>")
+            #for category1 in categories1:
+                    #category1.delete()
             for category in categories:
                     #self.response.out.write('%s' % category)
                     #category.delete()
@@ -403,11 +575,21 @@ class Guestbook(webapp.RequestHandler):
                     #category.delete()
                     
                     self.response.out.write("<input type=radio name=category value='%s'checked/>%s<br />" % (category.name,category.name))
-                    
+                    citem=[]
+                    citem=category.items
+                    for item in citem:
+                        self.response.out.write("&nbsp;&nbsp;&nbsp;&nbsp;<input type=radio name=item value='%s'checked/>%s" % (item,item))
+                    self.response.out.write('<br /><br />')
                     #self.response.out.write('<b>%s</b> :' % category.name)
                     #self.response.out.write('<b>%s</b><br />' % category.items)
-            self.response.out.write("<p>Click here to delete category: <input type='submit' name='delete' value='Deletes'><br />")
+            
             self.response.out.write("<p>Click here to export category with XML: <input type='submit' name='export' value='Export'><br />")
+            self.response.out.write("<p>Click here to delete a <b>cateogry</b>: <input type='submit' name='deletecategory' value='Deletes'><br />")
+            self.response.out.write("<p>Change the name of this <b>cateogry</b> to: <input type='text' name='newname'>")
+            self.response.out.write("<input type='submit' name='changecategory' value='Change'><br />")
+            self.response.out.write("<p>Change the name of this <b>item</b> to: <input type='text' name='newnameitem'>")
+            self.response.out.write("<input type='submit' name='changeitem' value='Change'><br />")
+            self.response.out.write("<p>Click here to delete an <b>item</b>: <input type='submit' name='deleteitem' value='Deletes'><br />")
             self.response.out.write("</form>")
             self.response.out.write("<hr />")
 
@@ -464,4 +646,4 @@ def main():
     run_wsgi_app(application)
 
 if __name__ == "__main__":
-    main()
+    main()  
