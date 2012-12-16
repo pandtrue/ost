@@ -255,12 +255,12 @@ class Deletecategory(webapp.RequestHandler):
                             rightlist=itemlist
                             x.delete()
                     #self.response.out.write("%s,%s" % (category,rightlist))
-                    pos=rightlist.index(item)
-                    rightlist.pop(pos)
+                            pos=rightlist.index(item)
+                            rightlist.pop(pos)
                     #self.response.out.write("%s,%s<br/ >" % (category,rightlist))
-                    new=Category(name=cname)
-                    new.items=rightlist
-                    new.put()
+                            new=Category(name=cname)
+                            new.items=rightlist
+                            new.put()
 
                     alist=[]
                     slist=[]
@@ -268,7 +268,7 @@ class Deletecategory(webapp.RequestHandler):
                     #query2.filter('name =', 'Movies')
                     for y in query2:
                         alist=y.resultlist
-                        self.response.out.write("%s" % alist)
+                        #self.response.out.write("%s" % alist)
                         
                         for u in xrange(len(alist)-1):
                             if item in alist[u]:
@@ -281,12 +281,11 @@ class Deletecategory(webapp.RequestHandler):
                                 #self.response.out.write("%s" % pos)
                                 alist.pop(pos)
                                 #self.response.out.write("%s" % alist)
-                        y.delete()
-                    #slist=alist
-                    #self.response.out.write("%s" % alist)
-                    new=Result(name=cname)
-                    new.items=alist
-                    new.put()
+                                y.delete()
+                   
+                            new=Result(name=cname)
+                            new.items=alist
+                            new.put()
                     self.response.out.write("Successfully delete the item!")
 
                 # Change the name of an exist item in a category
@@ -316,50 +315,48 @@ class Deletecategory(webapp.RequestHandler):
                                 itemlist.append(newname)
                                 self.response.out.write("%s" % itemlist)
                                 x.delete()
-                    new=Category(name=cname)
-                    new.items=itemlist
-                    new.put()
-                    
+                                new=Category(name=cname)
+                                new.items=itemlist
+                                new.put()
+
+                    alist=[]
                     query2=Result.all()
                     for y in query2:
                         alist=y.resultlist
-                        self.response.out.write("%s" % len(alist))
-                        m=len(alist)-1
-                        
-                        self.response.out.write("%s" % alist[m])
-                        
                         for u in xrange(len(alist)-1):
                             if item in alist[u]:
-                                bname=y.name                                
-                                self.response.out.write("%s" % alist[u])                        
+                                bname=y.name
+                                #self.response.out.write("%s" % bname)
+                                #self.response.out.write("%s" % alist[u])                        
                                 pos=alist.index(alist[u])
-                                self.response.out.write("%s" % pos)
+                                #self.response.out.write("%s" % pos)
                                 alist.pop(pos)
-                                self.response.out.write("%s" % alist)
+                                #self.response.out.write("%s" % alist)
                                                             
                                 a=alist[u].split('/')
-                                self.response.out.write("%s" % a)
-                                left=a[0]
-                                right=a[1]
-                                self.response.out.write("%s,%s" % (left,right))
+                                #self.response.out.write("%s" % a)
+                                left=str(a[0])
+                                right=str(a[1])
+                                #self.response.out.write("%s,%s" % (left,right))
                                 if item == left:
-                                    b=newname+'/'+right
+                                    b=(newname+'/'+right).decode('unicode-escape')
                                 else:
-                                    b=left+'/'+newname
+                                    b=(left+'/'+newname).decode('unicode-escape')
                                 alist.append(b)
                                 self.response.out.write("%s" % alist)
-                            y.delete()
-                    new=Result(name=bname)
-                    new.items=alist
-                    new.put()
-                    
+                                y.delete()
+                                new=Result(name=bname)
+                                new.resultlist=alist
+                                new.put()
+                                self.response.out.write("%s" % new.resultlist)
+
                     query3 = Result.all()
-                    ccresult=[]
-                    query3.filter('name =', bname)
-                    for z in query3:
-                        ccresult=y.resultlist
-                        self.response.out.write("%s" % ccresult)
-                    
+                    #query3.filter('name =', bname)
+                    citem2=[]
+                    for w in query3:
+                        #self.response.out.write("%s<br />" % x.items)
+                        citem2=w.resultlist
+                        self.response.out.write("%s" %citem2)
                     self.response.out.write("Successfully change the name of item!")
                 
                                             
@@ -414,7 +411,7 @@ class Votecategory(webapp.RequestHandler):
                 self.response.out.write('<html><body>')
                 category = form.getvalue("category")
                 if form.has_key("aftervote"):
-                    
+                    #a=[]
                     item =form["item"].value
                     # item in format win/lose
                     win = form.getvalue("item").split("/")[0]
