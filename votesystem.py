@@ -8,6 +8,8 @@ from google.appengine.api import users
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
+from google.appengine.ext import blobstore
+from google.appengine.ext.webapp import blobstore_handlers
 
 cgitb.enable()
 form = cgi.FieldStorage()
@@ -28,6 +30,7 @@ class Belong(db.Model):
     user = db.StringProperty(required=True)
     categorylist = db.StringListProperty()
 
+# Create two category model for test.
 C1 = Category(name="Movies")
 C1.items=["Ironman","Titanic","Avartar","LionKing"]
 C1.put()
@@ -47,7 +50,6 @@ class MainPage(webapp.RequestHandler):
         user = users.get_current_user()
 
         if user:
-            #self.response.headers['Content-Type'] = 'text/plain'
             self.response.out.write('<html><body>')
             self.response.out.write('Hello, ' + user.nickname())
             self.response.out.write("""
@@ -64,8 +66,12 @@ class MainPage(webapp.RequestHandler):
               </form>
             </body>
             </html>""")
+            #<a href='/'> Home Page</a>
+            self.response.out.write('<a href="users.create_logout_url(self.request.uri)">Log out</a>')
+            #self.redirect(users.create_logout_url(self.request.uri))
         else:
             self.redirect(users.create_login_url(self.request.uri))
+        
 
 # find the word that user input, and check is there any item in each category related to the word.
 class Finditem(webapp.RequestHandler):
@@ -161,19 +167,6 @@ class Deletecategory(webapp.RequestHandler):
                         y.delete()
                            
                     self.response.out.write('Successfully delete the category!')
-                    '''
-                    if x in blist:
-                        x.delete()
-                        query2 = Result.all()
-                        query2.filter('name =', category)
-                        for y in query2:
-                            y.delete()
-                           
-                        self.response.out.write('Successfully delete the category!')
-                    else:
-                        self.response.out.write('Sorry, this is not your category, you cannot delete it.')
-                    '''
-                    
 
                 # Export a category, output the category in the xml format.
                 elif form.has_key("export"):
@@ -242,8 +235,6 @@ class Deletecategory(webapp.RequestHandler):
                         itemlist=x.items
                         if item in itemlist:
                             cname=x.name
-                            
-                            category=x
                             rightlist=itemlist
                             x.delete()
                             pos=rightlist.index(item)
@@ -275,23 +266,23 @@ class Deletecategory(webapp.RequestHandler):
                 elif form.has_key("changeitem"):                    
                     newname=form.getvalue("newnameitem")
                     item=form.getvalue("item")
-                    self.response.out.write("%s" % item)
-                    self.response.out.write("%s" % newname)
+                    #self.response.out.write("%s" % item)
+                    #self.response.out.write("%s" % newname)
                     query=Category.all()
 
                     itemlist=[]
                     for x in query:
                         itemlist=x.items
-                        self.response.out.write("%s" % itemlist)
+                        #self.response.out.write("%s" % itemlist)
                         for u in xrange(len(itemlist)):
                             if item == itemlist[u]:
                                 cname=x.name
-                                self.response.out.write("%s" % itemlist[u])                         
+                                #self.response.out.write("%s" % itemlist[u])                         
                                 pos=itemlist.index(itemlist[u])
-                                self.response.out.write("%s" % pos)
+                                #self.response.out.write("%s" % pos)
                                 itemlist.pop(pos)
                                 itemlist.append(newname)
-                                self.response.out.write("%s" % itemlist)
+                                #self.response.out.write("%s" % itemlist)
                                 x.delete()
                                 new=Category(name=cname)
                                 new.items=itemlist
@@ -314,18 +305,13 @@ class Deletecategory(webapp.RequestHandler):
                                 else:
                                     b=(left+'/'+newname).decode('unicode-escape')
                                 alist.append(b)
-                                self.response.out.write("%s" % alist)
+                                #self.response.out.write("%s" % alist)
                                 y.delete()
                                 new=Result(name=bname)
                                 new.resultlist=alist
                                 new.put()
-                                self.response.out.write("%s" % new.resultlist)
+                                #self.response.out.write("%s" % new.resultlist)
 
-                    query3 = Result.all()
-                    citem2=[]
-                    for w in query3:
-                        citem2=w.resultlist
-                        self.response.out.write("%s" %citem2)
                     self.response.out.write("Successfully change the name of item!")
                 
                                             
@@ -337,18 +323,18 @@ class Deletecategory(webapp.RequestHandler):
 # if not, just add it in. If it already exist, replace the old one.
 # For Result model, ex. item: A B C --> B C D. Check whether all the items in old category are in new one,
 # if not, delete the comparison contains A from the result model. 
-class Importxml(webapp.RequestHandler):
+class Importxml(blobstore_handlers.BlobstoreUploadHandler):
     def post(self):
                 form = cgi.FieldStorage()
                 self.response.out.write('<html><body>')
-                address=form.getvalue("xml")
-                PROJECT_DIR = os.path.dirname(address)
-                dom = xml.dom.minidom.parse(address)
-                root = dom.documentElement
+                upload_files = self.get_uploads('myfile')
+                file_contents = form["myfile"].file.read()
+                dom = xml.dom.minidom.parseString(file_contents)
+                root = dom.documentElement              
                 nameNode = root.getElementsByTagName("NAME")[0]
                 catename = nameNode.childNodes[0].nodeValue
                 items = root.getElementsByTagName("ITEM")
-
+                
                 itemlist=[]    
                 for item in items:
                     nameNode2 = item.getElementsByTagName("NAME")[0]
@@ -386,7 +372,7 @@ class Importxml(webapp.RequestHandler):
                 self.response.out.write("<hr />")
                 self.response.out.write("<li>Back to <a href='/'> Home Page</a></li></ul>")
                 self.response.out.write('</body></html>')
-             
+                
 # Form the selected category, random generate two items for user to vote.
 # read the answer and write into result for later use.
 class Votecategory(webapp.RequestHandler):
@@ -401,7 +387,6 @@ class Votecategory(webapp.RequestHandler):
                     lose = form.getvalue("item").split("/")[1]
                     self.response.out.write("<i>You voted for '%s' over '%s'.</i><br /><br />" %(win,lose))
                     a.append(item)
-                    self.response.out.write("%s" % a)
                     # save the result into model Result
                     new=Result(name=category)
                     new.resultlist=a
@@ -560,11 +545,15 @@ class Guestbook(webapp.RequestHandler):
             self.response.out.write("<hr />")
 
             # This form use for create new category with XML page user imported
-            self.response.out.write("<b>Import a category with XML: </b><br/ >")
-            self.response.out.write("<form action='/xml' method='post' target='_self'>")
-            self.response.out.write("<p> Please enter the xml address: <input type='text' name='xml'>")
-            self.response.out.write("<input type='submit' name='create' value='Import'>")
-            self.response.out.write("</form>")
+            #self.response.out.write("<b>Import a category with XML: </b><br/ >")
+            #self.response.out.write("<form action='/xml' method='post' target='_self'>")
+            #self.response.out.write("<p> Please enter the xml address: <input type='text' name='xml'>")
+            #self.response.out.write("<input type='submit' name='create' value='Import'>")
+            #self.response.out.write("</form>")
+            self.response.out.write('<form action="/xml" method="post" enctype="multipart/form-data">') 
+            self.response.out.write('<input type="file" name="myfile" value=""/>')
+            self.response.out.write('<input type="submit" value="Upload"/>') 
+            self.response.out.write('</form>')
             
         # This page shows when user choose to vote on a category. List all the categoires and let user start                              
         else:
