@@ -1,0 +1,31 @@
+Tianyi Cong
+Open Source Tools
+Prof. Jeffrey Korn 
+12/16/2012
+
+				Final Project
+
+    This project is based on the project 4, which is a web-based interface vote system, and add more functions and features.
+
+I designed and coded in following steps:
+
+1. Achieve all the fuctions of project 4: This include construct the frame of this project and rewrite the code of last 
+project since I cannot invoke shell scripts from Python. I construct two models, one category model, which store category name
+and a list contain items in that category. One result model, use for store category name and a list of result in format 
+win/lose as project 4. Instead of showing two categories in the home page directly, I makeit a option "Vote a category", next
+ to the option "Edit a category". 
+
+2. Add functions one by one in the option "Edit a cateogry", from which easy to achieve to more complex ones. First are
+add new category and delete an existing category, change name of a category, then delete a item in a category, and change name
+of a item in a category. During chaning the names, I use the stratagy that make change of the name of list, then delete the 
+old model and create the new model. Delete a item in a category also need to delete the corresponding record in the result 
+list of result model. Moreover, change item name in a category need to rewrite the result list with the new name of the item.
+
+3. Add import and export category with XMLfunctions. I make the import with a uploaded file, then parse it with xml.minidom. 
+Then use the infomation from XML file generate new category or vive versa. Also add links on every pages.
+
+4. Add advanced feature, I choose the search capability to find items and categories that match supplied keywords. At the bottom
+of the home page, input some word, then it will shows whether the word is the (part of)name of a category, or (part of) name
+of a item in a category.
+
+4. Test every functions and add more details to each class and functions. I believe they are addressed pretty clear.

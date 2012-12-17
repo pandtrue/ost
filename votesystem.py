@@ -66,9 +66,6 @@ class MainPage(webapp.RequestHandler):
               </form>
             </body>
             </html>""")
-            #<a href='/'> Home Page</a>
-            self.response.out.write('<a href="users.create_logout_url(self.request.uri)">Log out</a>')
-            #self.redirect(users.create_logout_url(self.request.uri))
         else:
             self.redirect(users.create_login_url(self.request.uri))
         
@@ -149,12 +146,8 @@ class Deletecategory(webapp.RequestHandler):
 
                 user = users.get_current_user()
                 # Delete a category. also delete that category in the Result model.
+                # Make sure you choose the right category, which item is choosed is doesn't matter.
                 if form.has_key("deletecategory"):
-                    blist=[]
-                    queryu=Belong.all()
-                    queryu.filter('user =', user)
-                    for usr in queryu:
-                        blist=queryu.categorylist
                         
                     query = Category.all()
                     query.filter('name =', category)
@@ -170,8 +163,7 @@ class Deletecategory(webapp.RequestHandler):
 
                 # Export a category, output the category in the xml format.
                 elif form.has_key("export"):
-                    
-                    
+                                        
                     query = Category.all()
                     query.filter('name =', category)
                     relist=[]
@@ -196,6 +188,7 @@ class Deletecategory(webapp.RequestHandler):
 
 
                 # Change the name of a category.
+                # Focus on the category instead of not item.
                 # First find out that category, get the items in it.
                 # make the new category with new name and the same items, then delete old one.
                 # For the result model, do the same way.
@@ -224,6 +217,7 @@ class Deletecategory(webapp.RequestHandler):
                     self.response.out.write('Successfully change the category name!')
 
                 # Delete an item in the category
+                # Foucus on a item instead of category
                 # get the item and find the category it in
                 # delete that item in the item list and make new category with the new list and delete the old category
                 # do the same thing in the result model, delete the row has item, create Result model with the new resultlist the delete the old one.
@@ -260,6 +254,7 @@ class Deletecategory(webapp.RequestHandler):
                     self.response.out.write("Successfully delete the item!")
 
                 # Change the name of an exist item in a category
+                # Focus on item, not category since it is change the name of item, it will choose category itself
                 # Find out the category that item in, get the item list, rename and make the new list
                 # remake the category, and delete the old category
                 # For Result model, do the same thing.                
